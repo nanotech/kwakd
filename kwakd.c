@@ -230,6 +230,7 @@ static void handle_request( int fd )
 {
     int rv;
     char inbuffer[2048];
+    const char *message;
 
     rv = recv( fd, inbuffer, sizeof( inbuffer ), 0 );
     if( rv == -1 )
@@ -238,11 +239,14 @@ static void handle_request( int fd )
 	return;
     }
 
-    SAFESEND( fd, "HTTP/1.1 200 OK\r\n" );
-    SAFESEND( fd, "Content-Type: text/html\r\n" );
-    SAFESEND( fd, "Last-Modified: Sat, 08 Jan 1492 01:12:12 GMT\r\n" );
-    SAFESEND( fd, "Content-Length: 15\r\n\r\n" );
-    SAFESEND( fd, "<html> </html>\r\n" );
+    message =
+      "HTTP/1.0 200 OK\r\n"
+      "Content-Type: text/html\r\n"
+      "Last-Modified: Sat, 08 Jan 1492 01:12:12 GMT\r\n"
+      "Content-Length: 15\r\n\r\n"
+      "<html> </html>\r\n"
+      ;
+    SAFESEND( fd, message );
 }
 
 static void logmessage( int level, char *message )
