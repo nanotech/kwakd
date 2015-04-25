@@ -241,7 +241,7 @@ static void handle_request( int fd )
 
     message =
       "HTTP/1.0 200 OK\r\n"
-      "Content-Type: text/html\r\n"
+      "Content-Type: text/html;charset=UTF-8\r\n"
       "Last-Modified: Sat, 08 Jan 1492 01:12:12 GMT\r\n"
       "Content-Length: 15\r\n\r\n"
       "<html> </html>\r\n"
