@@ -59,6 +59,8 @@ static void help( void )
     printf( "  -b, --background     background mode (disables console output, and allows\n" );
     printf( "                       multiple requests to be served simultaneously)\n" );
     printf( "  -p, --port           port to listen for requests on, defaults to 8000\n" );
+    printf( "  -u, --user           user ID to switch to\n" );
+    printf( "  -g, --group          group ID to switch to\n" );
     printf( "  -v, --verbose        verbose output\n" );
     printf( "  -q, --quiet          suppress any output\n" );
     printf( "  -V, --version        print version and exit\n" );
@@ -74,6 +76,8 @@ static void sigcatch( int signal );
 int main( int argc, char *argv[] )
 {
     int port = 8000;
+    uid_t uid = 0;
+    gid_t gid = 0;
     struct sockaddr_in my_addr;
     struct sockaddr_in remote_addr;
     int sin_size;
@@ -96,6 +100,16 @@ int main( int argc, char *argv[] )
 	else if( ( strcmp( argv[i], "-p" ) == 0 ) || ( strcmp( argv[i], "--port" ) == 0 ) )
 	{
 	    port = atoi( argv[i + 1] );
+	    i++;
+	}
+	else if( ( strcmp( argv[i], "-u" ) == 0 ) || ( strcmp( argv[i], "--user" ) == 0 ) )
+	{
+	    uid = atoi( argv[i + 1] );
+	    i++;
+	}
+	else if( ( strcmp( argv[i], "-g" ) == 0 ) || ( strcmp( argv[i], "--group" ) == 0 ) )
+	{
+	    gid = atoi( argv[i + 1] );
 	    i++;
 	}
 	else if( ( strcmp( argv[i], "-v" ) == 0 ) || ( strcmp( argv[i], "--verbose" ) == 0 ) )
@@ -160,6 +174,19 @@ int main( int argc, char *argv[] )
 
     if( listen( sockfd, 25 ) == -1 )
 	logmessage( PANIC, "Couldn't listen on specified port." );
+
+    if( getuid() == 0 ) {
+        if( verbose )
+            printf( "Dropping privileges\n" );
+        if( chdir( "/var/empty" ) != 0 )
+            logmessage( PANIC, "Couldn't chdir to empty directory." );
+        if( chroot( "/var/empty" ) != 0 )
+            logmessage( PANIC, "Couldn't chroot to empty directory." );
+        if( setgid( gid ) != 0 )
+            logmessage( PANIC, "Couldn't drop group privileges." );
+        if( setuid( uid ) != 0 )
+            logmessage( PANIC, "Couldn't drop user privileges." );
+    }
 
     if( verbose )
 	printf( "Listening for connections on port %d...\n", port );
