@@ -244,8 +244,7 @@ static void handle_request( int fd )
       "Content-Type: text/html;charset=UTF-8\r\n"
       "Last-Modified: Sat, 08 Jan 1492 01:12:12 GMT\r\n"
       "Cache-Control: max-age=3600\r\n"
-      "Content-Length: 15\r\n\r\n"
-      "<html> </html>\r\n"
+      "Content-Length: 0\r\n\r\n"
       ;
     SAFESEND( fd, message );
 }
