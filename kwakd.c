@@ -46,10 +46,10 @@
 #define PANIC   2
 
 /* globals */
-int verbose = 0;        /* verbose output to stdout */
-int quiet = 0;          /* suppress any output */
-int background = 0;     /* go to background */
-int sockfd = -1;
+static int verbose = 0;        /* verbose output to stdout */
+static int quiet = 0;          /* suppress any output */
+static int background = 0;     /* go to background */
+static int sockfd = -1;
 
 static void help( void )
 {
