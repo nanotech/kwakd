@@ -87,80 +87,80 @@ int main( int argc, char *argv[] )
     /* Parse options */
     for( i = 1; i < argc; i++ )
     {
-	if( strcmp( argv[i], "-V" ) == 0 )
-	{
-	    printf( "This is kwakd %s.\n", VERSION );
-	    exit( 0 );
-	}
-	else if( ( strcmp( argv[i], "-h" ) == 0 ) || ( strcmp( argv[i], "--help" ) == 0 ) )
-	{
-	    help(  );
-	    exit( 0 );
-	}
-	else if( ( strcmp( argv[i], "-p" ) == 0 ) || ( strcmp( argv[i], "--port" ) == 0 ) )
-	{
-	    port = atoi( argv[i + 1] );
-	    i++;
-	}
-	else if( ( strcmp( argv[i], "-u" ) == 0 ) || ( strcmp( argv[i], "--user" ) == 0 ) )
-	{
-	    uid = atoi( argv[i + 1] );
-	    i++;
-	}
-	else if( ( strcmp( argv[i], "-g" ) == 0 ) || ( strcmp( argv[i], "--group" ) == 0 ) )
-	{
-	    gid = atoi( argv[i + 1] );
-	    i++;
-	}
-	else if( ( strcmp( argv[i], "-v" ) == 0 ) || ( strcmp( argv[i], "--verbose" ) == 0 ) )
-	{
-	    verbose++;
-	}
-	else if( ( strcmp( argv[i], "-q" ) == 0 ) || ( strcmp( argv[i], "--quiet" ) == 0 ) )
-	{
-	    quiet = 1;
-	}
-	else if( ( strcmp( argv[i], "-b" ) == 0 ) || ( strcmp( argv[i], "--background" ) == 0 ) )
-	{
-	    background = 1;
-	}
+        if( strcmp( argv[i], "-V" ) == 0 )
+        {
+            printf( "This is kwakd %s.\n", VERSION );
+            exit( 0 );
+        }
+        else if( ( strcmp( argv[i], "-h" ) == 0 ) || ( strcmp( argv[i], "--help" ) == 0 ) )
+        {
+            help(  );
+            exit( 0 );
+        }
+        else if( ( strcmp( argv[i], "-p" ) == 0 ) || ( strcmp( argv[i], "--port" ) == 0 ) )
+        {
+            port = atoi( argv[i + 1] );
+            i++;
+        }
+        else if( ( strcmp( argv[i], "-u" ) == 0 ) || ( strcmp( argv[i], "--user" ) == 0 ) )
+        {
+            uid = atoi( argv[i + 1] );
+            i++;
+        }
+        else if( ( strcmp( argv[i], "-g" ) == 0 ) || ( strcmp( argv[i], "--group" ) == 0 ) )
+        {
+            gid = atoi( argv[i + 1] );
+            i++;
+        }
+        else if( ( strcmp( argv[i], "-v" ) == 0 ) || ( strcmp( argv[i], "--verbose" ) == 0 ) )
+        {
+            verbose++;
+        }
+        else if( ( strcmp( argv[i], "-q" ) == 0 ) || ( strcmp( argv[i], "--quiet" ) == 0 ) )
+        {
+            quiet = 1;
+        }
+        else if( ( strcmp( argv[i], "-b" ) == 0 ) || ( strcmp( argv[i], "--background" ) == 0 ) )
+        {
+            background = 1;
+        }
     }
 
     /* fork if necessary */
     if( background )
     {
-	verbose = 0;
-	rv = fork(  );
-	if( rv == -1 )
-	{
-	    logmessage( PANIC, "Error forking." );
-	}
-	else if( rv > 0 )
-	{
-	    /* Exit if this is the parent */
-	    _exit( 0 );
-	}
-	if( setsid(  ) == -1 )
-	    logmessage( PANIC, "Couldn't create SID session." );
-	if( signal( SIGCHLD, SIG_IGN ) == SIG_ERR )
-	{
-	    logmessage( PANIC, "Couldn't initialize signal handlers." );
-	}
-	if( ( close( 0 ) == -1 ) || ( close( 1 ) == -1 ) || ( close( 2 ) == -1 ) )
-	{
-	    logmessage( PANIC, "Couldn't close streams." );
-	}
+        verbose = 0;
+        rv = fork(  );
+        if( rv == -1 )
+        {
+            logmessage( PANIC, "Error forking." );
+        }
+        else if( rv > 0 )
+        {
+            /* Exit if this is the parent */
+            _exit( 0 );
+        }
+        if( setsid(  ) == -1 )
+            logmessage( PANIC, "Couldn't create SID session." );
+        if( signal( SIGCHLD, SIG_IGN ) == SIG_ERR )
+        {
+            logmessage( PANIC, "Couldn't initialize signal handlers." );
+        }
+        if( ( close( 0 ) == -1 ) || ( close( 1 ) == -1 ) || ( close( 2 ) == -1 ) )
+        {
+            logmessage( PANIC, "Couldn't close streams." );
+        }
     }
 
     /* Trap signals */
     if( ( signal( SIGTERM, sigcatch ) == SIG_ERR ) || ( signal( SIGINT, sigcatch ) == SIG_ERR ) )
     {
-	logmessage( PANIC, "Couldn't setup signal traps." );
+        logmessage( PANIC, "Couldn't setup signal traps." );
     }
 
     sockfd = socket( AF_INET, SOCK_STREAM, 0 );
     if( sockfd == -1 )
-	logmessage( PANIC, "Couldn't create socket." );
+        logmessage( PANIC, "Couldn't create socket." );
 
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons( port );
@@ -168,12 +168,12 @@ int main( int argc, char *argv[] )
     bzero( &( my_addr.sin_zero ), 8 );
 
     if( bind( sockfd, ( struct sockaddr * ) &my_addr, sizeof( struct sockaddr ) ) == -1 )
-	logmessage( PANIC, "Couldn't bind to specified port." );
+        logmessage( PANIC, "Couldn't bind to specified port." );
 
     sin_size = sizeof( struct sockaddr_in );
 
     if( listen( sockfd, 25 ) == -1 )
-	logmessage( PANIC, "Couldn't listen on specified port." );
+        logmessage( PANIC, "Couldn't listen on specified port." );
 
     if( getuid() == 0 ) {
         if( verbose )
@@ -189,25 +189,25 @@ int main( int argc, char *argv[] )
     }
 
     if( verbose )
-	printf( "Listening for connections on port %d...\n", port );
+        printf( "Listening for connections on port %d...\n", port );
 
     while( 1 )
     {
-	newfd = accept( sockfd, ( struct sockaddr * ) &remote_addr, &sin_size );
-	if( newfd == -1 )
-	    logmessage( PANIC, "Couldn't accept connection!" );
+        newfd = accept( sockfd, ( struct sockaddr * ) &remote_addr, &sin_size );
+        if( newfd == -1 )
+            logmessage( PANIC, "Couldn't accept connection!" );
 
         logmessage( INFO, "Connected, handling requests." );
 
-	if( background )
-	{
-	    fr = fork(  );
-	    if( fr != 0 )
-		continue;
-	    handle_connection( newfd );
-	    _exit( 0 );
-	}
-	handle_connection( newfd );
+        if( background )
+        {
+            fr = fork(  );
+            if( fr != 0 )
+                continue;
+            handle_connection( newfd );
+            _exit( 0 );
+        }
+        handle_connection( newfd );
     }
 }
 
@@ -218,12 +218,12 @@ static void handle_connection( int fd )
     /* Shutdown socket */
     if( shutdown( fd, SHUT_RDWR ) == -1 )
     {
-	logmessage( WARNING, "Error shutting down client socket." );
-	return;
+        logmessage( WARNING, "Error shutting down client socket." );
+        return;
     }
 
     if( close( fd ) == -1 )
-	logmessage( WARNING, "Error closing client socket." );
+        logmessage( WARNING, "Error closing client socket." );
 }
 
 static void handle_request( int fd )
@@ -235,8 +235,8 @@ static void handle_request( int fd )
     rv = recv( fd, inbuffer, sizeof( inbuffer ), 0 );
     if( rv == -1 )
     {
-	logmessage( WARNING, "Error receiving request from client." );
-	return;
+        logmessage( WARNING, "Error receiving request from client." );
+        return;
     }
 
     message =
@@ -272,11 +272,11 @@ static void logmessage( int level, char *message )
 static void sigcatch( int signal )
 {
     if( verbose )
-	printf( "Signal caught, exiting.\n" );
+        printf( "Signal caught, exiting.\n" );
     if( sockfd != -1 )
     {
-	if( close( sockfd ) == -1 )
+        if( close( sockfd ) == -1 )
             logmessage( WARNING, "Error closing socket." );
-	exit( 0 );
+        exit( 0 );
     }
 }
