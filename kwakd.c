@@ -28,6 +28,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -73,12 +74,12 @@ static void sigcatch( int signal );
 
 int main( int argc, char *argv[] )
 {
-    int port = 8000;
+    uint16_t port = 8000;
     uid_t uid = 0;
     gid_t gid = 0;
     struct sockaddr_in my_addr;
     struct sockaddr_in remote_addr;
-    int sin_size;
+    socklen_t sin_size;
     int newfd;
     int i, fr, rv;
 
@@ -97,17 +98,17 @@ int main( int argc, char *argv[] )
         }
         else if( ( strcmp( argv[i], "-p" ) == 0 ) || ( strcmp( argv[i], "--port" ) == 0 ) )
         {
-            port = atoi( argv[i + 1] );
+            port = (uint16_t)atoi( argv[i + 1] );
             i++;
         }
         else if( ( strcmp( argv[i], "-u" ) == 0 ) || ( strcmp( argv[i], "--user" ) == 0 ) )
         {
-            uid = atoi( argv[i + 1] );
+            uid = (uid_t)atoi( argv[i + 1] );
             i++;
         }
         else if( ( strcmp( argv[i], "-g" ) == 0 ) || ( strcmp( argv[i], "--group" ) == 0 ) )
         {
-            gid = atoi( argv[i + 1] );
+            gid = (gid_t)atoi( argv[i + 1] );
             i++;
         }
         else if( ( strcmp( argv[i], "-v" ) == 0 ) || ( strcmp( argv[i], "--verbose" ) == 0 ) )
@@ -279,7 +280,7 @@ static int format_response( char *message )
 
 static void handle_request( int fd )
 {
-    int rv;
+    ssize_t rv;
     char inbuffer[2048];
     char message[sizeof response_format];
 
