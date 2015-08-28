@@ -37,14 +37,12 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <time.h>
 #include <errno.h>
 
 #define INFO    0
 #define WARNING 1
 #define PANIC   2
-
-#define SAFESEND( fd, msg ) \
-    if( send( fd, msg, strlen( msg ), 0 ) == -1 ) { logmessage( WARNING, "Error sending data to client." ); return; }
 
 /* globals */
 int verbose = 0;        /* verbose output to stdout */
@@ -226,11 +224,64 @@ static void handle_connection( int fd )
         logmessage( WARNING, "Error closing client socket." );
 }
 
+static const char response_format[] =
+  "HTTP/1.0 200 OK\r\n"
+  "Date: aaa, dd bbb YYYY HH:MM:SS GMT\r\n"
+  "Expires: aaa, dd bbb YYYY HH:MM:SS GMT\r\n"
+  "Last-Modified: Fri, 13 Feb 2009 23:31:30 GMT\r\n"
+  "Cache-Control: public, max-age=31536000\r\n"
+  "Content-Type: text/html;charset=UTF-8\r\n"
+  "Content-Length: 0\r\n"
+  "\r\n";
+
+static const char http_date_format[] = "%a, %d %b %Y %H:%M:%S";
+
+#define HEADER_DATE_OFFSET 23
+#define HEADER_DATE_LENGTH 25
+#define HEADER_EXPIRES_OFFSET (HEADER_DATE_OFFSET + HEADER_DATE_LENGTH + 4 + 2 + 9)
+
+#define ONE_YEAR (60 * 60 * 24 * 356)
+
+static int format_http_date( char *buf, time_t t )
+{
+    struct tm tm;
+    if( gmtime_r(&t, &tm) == NULL )
+    {
+        return -errno;
+    }
+
+    if( strftime( buf, HEADER_DATE_LENGTH + 1, http_date_format, &tm ) == 0 )
+    {
+        return -1;
+    }
+    buf[HEADER_DATE_LENGTH] = ' '; // Restore space clobbered by trailing null
+
+    return 0;
+}
+
+static int format_response( char *message )
+{
+    time_t now_time = time(0);
+    if( now_time == (time_t)-1 )
+    {
+        return -1;
+    }
+
+    memcpy(message, response_format, sizeof response_format);
+
+    int res;
+    res = format_http_date(message + HEADER_DATE_OFFSET, now_time);
+    if( res < 0 ) return res;
+    res = format_http_date(message + HEADER_EXPIRES_OFFSET, now_time + ONE_YEAR);
+
+    return res;
+}
+
 static void handle_request( int fd )
 {
     int rv;
     char inbuffer[2048];
-    const char *message;
+    char message[sizeof response_format];
 
     rv = recv( fd, inbuffer, sizeof( inbuffer ), 0 );
     if( rv == -1 )
@@ -239,14 +290,17 @@ static void handle_request( int fd )
         return;
     }
 
-    message =
-      "HTTP/1.0 200 OK\r\n"
-      "Content-Type: text/html;charset=UTF-8\r\n"
-      "Last-Modified: Sat, 08 Jan 1492 01:12:12 GMT\r\n"
-      "Cache-Control: max-age=3600\r\n"
-      "Content-Length: 0\r\n\r\n"
-      ;
-    SAFESEND( fd, message );
+    if( format_response(message) < 0 )
+    {
+        logmessage( WARNING, "Error formatting response." );
+        return;
+    }
+
+    if( send( fd, message, sizeof message - 1, 0 ) == -1 )
+    {
+        logmessage( WARNING, "Error sending data to client." );
+        return;
+    }
 }
 
 static void logmessage( int level, char *message )
