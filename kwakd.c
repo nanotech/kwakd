@@ -199,6 +199,7 @@ int main(int argc, char *argv[]) {
         if (background) {
             fr = fork();
             if (fr != 0) {
+                close(newfd);
                 continue;
             }
             handle_connection(newfd);
