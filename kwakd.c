@@ -147,6 +147,10 @@ int main(int argc, char *argv[]) {
         logmessage(PANIC, "Couldn't create socket.");
     }
 
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1) {
+        logmessage(PANIC, "Couldn't set SO_REUSEADDR.");
+    }
+
     my_addr.sin_family = AF_INET;
     my_addr.sin_port = htons(port);
     my_addr.sin_addr.s_addr = INADDR_ANY;
