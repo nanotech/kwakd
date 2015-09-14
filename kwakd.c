@@ -307,7 +307,8 @@ static void logmessage(int level, char *message) {
     }
 }
 
-static void sigcatch(int signal) {
+static void sigcatch(int s) {
+    (void)s;
     if (verbose) {
         printf("Signal caught, exiting.\n");
     }
