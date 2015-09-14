@@ -76,9 +76,6 @@ int main(int argc, char *argv[]) {
     uid_t uid = 0;
     gid_t gid = 0;
     struct sigaction sa;
-    struct sockaddr_in my_addr;
-    struct sockaddr_in remote_addr;
-    socklen_t sin_size;
     int newfd;
     int i, fr, rv;
 
@@ -151,16 +148,15 @@ int main(int argc, char *argv[]) {
         logmessage(PANIC, "Couldn't set SO_REUSEADDR.");
     }
 
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(port);
-    my_addr.sin_addr.s_addr = INADDR_ANY;
-    bzero(&(my_addr.sin_zero), 8);
+    struct sockaddr_in my_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(port),
+        .sin_addr.s_addr = INADDR_ANY,
+    };
 
     if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1) {
         logmessage(PANIC, "Couldn't bind to specified port.");
     }
-
-    sin_size = sizeof(struct sockaddr_in);
 
     if (listen(sockfd, 25) == -1) {
         logmessage(PANIC, "Couldn't listen on specified port.");
@@ -189,6 +185,8 @@ int main(int argc, char *argv[]) {
     }
 
     while (1) {
+        struct sockaddr_in remote_addr;
+        socklen_t sin_size = sizeof remote_addr;
         newfd = accept(sockfd, (struct sockaddr *)&remote_addr, &sin_size);
         if (newfd == -1) {
             logmessage(PANIC, "Couldn't accept connection!");
