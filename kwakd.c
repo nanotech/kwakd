@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
     uint16_t port = 8000;
     uid_t uid = 0;
     gid_t gid = 0;
+    struct sigaction sa;
     struct sockaddr_in my_addr;
     struct sockaddr_in remote_addr;
     socklen_t sin_size;
@@ -121,7 +122,11 @@ int main(int argc, char *argv[]) {
         if (setsid() == -1) {
             logmessage(PANIC, "Couldn't create SID session.");
         }
-        if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
+        memset(&sa, 0, sizeof sa);
+        sigemptyset(&sa.sa_mask);
+        sa.sa_handler = SIG_IGN;
+        sa.sa_flags = SA_RESTART;
+        if (sigaction(SIGCHLD, &sa, NULL)) {
             logmessage(PANIC, "Couldn't initialize signal handlers.");
         }
         if ((close(0) == -1) || (close(1) == -1) || (close(2) == -1)) {
@@ -130,7 +135,10 @@ int main(int argc, char *argv[]) {
     }
 
     /* Trap signals */
-    if ((signal(SIGTERM, sigcatch) == SIG_ERR) || (signal(SIGINT, sigcatch) == SIG_ERR)) {
+    memset(&sa, 0, sizeof sa);
+    sigfillset(&sa.sa_mask);
+    sa.sa_handler = sigcatch;
+    if (sigaction(SIGTERM, &sa, NULL) || sigaction(SIGINT, &sa, NULL)) {
         logmessage(PANIC, "Couldn't setup signal traps.");
     }
 
