@@ -199,12 +199,6 @@ int main(int argc, char *argv[]) {
 static void handle_connection(int fd) {
     handle_request(fd);
 
-    /* Shutdown socket */
-    if (shutdown(fd, SHUT_RDWR) == -1) {
-        logmessage(WARNING, "Error shutting down client socket.");
-        return;
-    }
-
     if (close(fd) == -1) {
         logmessage(WARNING, "Error closing client socket.");
     }
