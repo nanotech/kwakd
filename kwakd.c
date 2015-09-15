@@ -247,7 +247,8 @@ static const char response_format[] = "HTTP/1.0 200 OK\r\n"
                                       "Content-Length: 0\r\n"
                                       "\r\n";
 
-static const char http_date_format[] = "%a, %d %b %Y %H:%M:%S";
+static const char http_date_weekdays[] = "SunMonTueWedThuFriSat";
+static const char http_date_months[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
 
 #define HEADER_DATE_OFFSET 23
 #define HEADER_DATE_LENGTH 25
@@ -255,16 +256,40 @@ static const char http_date_format[] = "%a, %d %b %Y %H:%M:%S";
 
 #define ONE_YEAR (60 * 60 * 24 * 356)
 
+static void format_int2(char *buf, int n) {
+    buf[0] = '0' + (char)(n / 10);
+    buf[1] = '0' + (char)(n % 10);
+}
+
+static void format_int4(char *buf, int n0) {
+    int n1 = n0 / 10;
+    int n2 = n1 / 10;
+    buf[0] = '0' + (char)(n2 / 10);
+    buf[1] = '0' + (char)(n2 % 10);
+    buf[2] = '0' + (char)(n1 % 10);
+    buf[3] = '0' + (char)(n0 % 10);
+}
+
 static int format_http_date(char *buf, time_t t) {
     struct tm tm;
     if (gmtime_r(&t, &tm) == NULL) {
         return -errno;
     }
 
-    if (strftime(buf, HEADER_DATE_LENGTH + 1, http_date_format, &tm) == 0) {
+    if (tm.tm_wday < 0 || tm.tm_wday >= 7) {
         return -1;
     }
-    buf[HEADER_DATE_LENGTH] = ' '; // Restore space clobbered by trailing null
+    if (tm.tm_mon < 0 || tm.tm_mon >= 12) {
+        return -1;
+    }
+
+    memcpy(buf, http_date_weekdays + 3 * tm.tm_wday, 3);
+    format_int2(buf + 5, tm.tm_mday);
+    memcpy(buf + 8, http_date_months + 3 * tm.tm_mon, 3);
+    format_int4(buf + 12, tm.tm_year + 1900);
+    format_int2(buf + 17, tm.tm_hour);
+    format_int2(buf + 20, tm.tm_min);
+    format_int2(buf + 23, tm.tm_sec);
 
     return 0;
 }
