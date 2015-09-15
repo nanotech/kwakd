@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -45,10 +46,15 @@
 #define WARNING 1
 #define PANIC   2
 
+#define BACKLOG  32
+#define CONN_MAX 1024
+
 /* globals */
 static int verbose = 0;    /* verbose output to stdout */
 static int quiet = 0;      /* suppress any output */
 static int sockfd = -1;
+static nfds_t nfds = 0;
+static struct pollfd fds[CONN_MAX];
 
 static void help(void) {
     printf("Usage: kwakd [OPTIONS]\n\n");
@@ -65,10 +71,13 @@ static void help(void) {
 }
 
 /* prototypes */
-static void handle_connection(int fd);
-static void handle_request(int fd);
+static void accept_connection(void);
+static int handle_connection(int fd);
+static int handle_request(int fd);
 static void logmessage(int level, char *message);
 static void sigcatch(int signal);
+static ssize_t fds_add(int fd);
+static void fds_remove_at_index(nfds_t i);
 
 int main(int argc, char *argv[]) {
     uint16_t port = 8000;
@@ -76,10 +85,9 @@ int main(int argc, char *argv[]) {
     gid_t gid = 0;
     int background = 0; /* go to background */
     struct sigaction sa;
-    int i, rv;
 
     /* Parse options */
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-V") == 0) {
             printf("This is kwakd %s.\n", VERSION);
             exit(0);
@@ -108,7 +116,7 @@ int main(int argc, char *argv[]) {
     /* fork if necessary */
     if (background) {
         verbose = 0;
-        rv = fork();
+        int rv = fork();
         if (rv == -1) {
             logmessage(PANIC, "Error forking.");
         } else if (rv > 0) {
@@ -154,7 +162,7 @@ int main(int argc, char *argv[]) {
         logmessage(PANIC, "Couldn't bind to specified port.");
     }
 
-    if (listen(sockfd, 25) == -1) {
+    if (listen(sockfd, BACKLOG) == -1) {
         logmessage(PANIC, "Couldn't listen on specified port.");
     }
 
@@ -180,52 +188,54 @@ int main(int argc, char *argv[]) {
         printf("Listening for connections on port %d...\n", port);
     }
 
-    fd_set all_fds;
-    fd_set read_fds;
-    int fdmax;
-
-    FD_ZERO(&all_fds);
-    FD_ZERO(&read_fds);
-    FD_SET(sockfd, &all_fds);
-    fdmax = sockfd;
+    fds_add(sockfd);
 
     for (;;) {
-        read_fds = all_fds;
-        if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
-            logmessage(PANIC, "Error in select.");
+        if (poll(fds, nfds, -1) == -1) {
+            logmessage(PANIC, "Error in poll.");
         }
 
-        for (int fd = 0; fd <= fdmax; fd++) {
-            if (!FD_ISSET(fd, &read_fds)) continue;
-            if (fd == sockfd) {
-                struct sockaddr_storage remote_addr;
-                socklen_t sin_size = sizeof remote_addr;
-                int newfd = accept(sockfd, (struct sockaddr *)&remote_addr, &sin_size);
-                if (newfd == -1) {
-                    logmessage(WARNING, "Couldn't accept connection!");
-                    continue;
-                }
+        if (fds[0].revents & POLLIN) {
+            accept_connection();
+        }
 
-                logmessage(INFO, "Connected, handling requests.");
+        for (nfds_t i = 1; i <= nfds; i++) {
+            if (fds[i].fd < 0 || !(fds[i].revents & POLLIN)) continue;
+            if (handle_connection(fds[i].fd) == 0) {
+                fds_remove_at_index(i);
 
-                FD_SET(newfd, &all_fds);
-                if (newfd > fdmax) {
-                    fdmax = newfd;
-                }
-            } else {
-                handle_connection(fd);
-                FD_CLR(fd, &all_fds);
+                // Examine fds[i] again. Removal swaps the last item into this slot.
+                i -= 1;
             }
         }
     }
 }
 
-static void handle_connection(int fd) {
-    handle_request(fd);
+static void accept_connection(void) {
+    struct sockaddr_storage remote_addr;
+    socklen_t sin_size = sizeof remote_addr;
+    int newfd = accept(sockfd, (struct sockaddr *)&remote_addr, &sin_size);
+    if (newfd == -1) {
+        logmessage(WARNING, "Couldn't accept connection!");
+        return;
+    }
+
+    if (fds_add(newfd) < 0) {
+        logmessage(WARNING, "Couldn't accept connection! Too many clients.");
+        return;
+    }
+
+    logmessage(INFO, "Connected, handling requests.");
+}
+
+static int handle_connection(int fd) {
+    int rv = handle_request(fd);
 
     if (close(fd) == -1) {
         logmessage(WARNING, "Error closing client socket.");
     }
+
+    return rv;
 }
 
 static const char response_format[] = "HTTP/1.0 200 OK\r\n"
@@ -277,26 +287,32 @@ static int format_response(char *message) {
     return rv;
 }
 
-static void handle_request(int fd) {
+// Returns 0 when it want to close the connection, -1 when it wants to read more.
+static int handle_request(int fd) {
     ssize_t rv;
     char inbuffer[2048];
     char message[sizeof response_format];
 
     rv = recv(fd, inbuffer, sizeof(inbuffer), 0);
+    if (rv == EAGAIN) {
+        return -1;
+    }
     if (rv == -1) {
         logmessage(WARNING, "Error receiving request from client.");
-        return;
+        return 0;
     }
 
     if (format_response(message) < 0) {
         logmessage(WARNING, "Error formatting response.");
-        return;
+        return 0;
     }
 
     if (send(fd, message, sizeof message - 1, 0) == -1) {
         logmessage(WARNING, "Error sending data to client.");
-        return;
+        return 0;
     }
+
+    return 0;
 }
 
 static void logmessage(int level, char *message) {
@@ -331,4 +347,29 @@ static void sigcatch(int s) {
         }
         exit(0);
     }
+}
+
+static ssize_t fds_add(int fd) {
+    if (nfds == CONN_MAX) {
+        return -1;
+    }
+
+    nfds_t i = nfds++;
+    fds[i].fd = fd;
+    fds[i].events = POLLIN;
+    return i;
+}
+
+static void fds_swap(nfds_t i, nfds_t j) {
+    if (i == j) return;
+    struct pollfd tmp = fds[i];
+    fds[i] = fds[j];
+    fds[j] = tmp;
+}
+
+static void fds_remove_at_index(nfds_t i) {
+    memset(&fds[i], 0, sizeof fds[i]);
+    fds[i].fd = -1;
+    nfds -= 1;
+    fds_swap(i, nfds);
 }
