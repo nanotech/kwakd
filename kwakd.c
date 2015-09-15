@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
         .sin_addr.s_addr = INADDR_ANY,
     };
 
-    if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1) {
+    if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr) == -1) {
         logmessage(PANIC, "Couldn't bind to specified port.");
     }
 
