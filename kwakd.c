@@ -48,7 +48,6 @@
 /* globals */
 static int verbose = 0;    /* verbose output to stdout */
 static int quiet = 0;      /* suppress any output */
-static int background = 0; /* go to background */
 static int sockfd = -1;
 
 static void help(void) {
@@ -75,9 +74,9 @@ int main(int argc, char *argv[]) {
     uint16_t port = 8000;
     uid_t uid = 0;
     gid_t gid = 0;
+    int background = 0; /* go to background */
     struct sigaction sa;
-    int newfd;
-    int i, fr, rv;
+    int i, rv;
 
     /* Parse options */
     for (i = 1; i < argc; i++) {
@@ -119,13 +118,6 @@ int main(int argc, char *argv[]) {
         if (setsid() == -1) {
             logmessage(PANIC, "Couldn't create SID session.");
         }
-        memset(&sa, 0, sizeof sa);
-        sigemptyset(&sa.sa_mask);
-        sa.sa_handler = SIG_IGN;
-        sa.sa_flags = SA_RESTART;
-        if (sigaction(SIGCHLD, &sa, NULL)) {
-            logmessage(PANIC, "Couldn't initialize signal handlers.");
-        }
         if ((close(0) == -1) || (close(1) == -1) || (close(2) == -1)) {
             logmessage(PANIC, "Couldn't close streams.");
         }
@@ -146,6 +138,10 @@ int main(int argc, char *argv[]) {
 
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1) {
         logmessage(PANIC, "Couldn't set SO_REUSEADDR.");
+    }
+
+    if (fcntl(sockfd, F_SETFL, O_NONBLOCK) == -1) {
+        logmessage(PANIC, "Couldn't set O_NONBLOCK.");
     }
 
     struct sockaddr_in my_addr = {
@@ -184,26 +180,43 @@ int main(int argc, char *argv[]) {
         printf("Listening for connections on port %d...\n", port);
     }
 
-    while (1) {
-        struct sockaddr_in remote_addr;
-        socklen_t sin_size = sizeof remote_addr;
-        newfd = accept(sockfd, (struct sockaddr *)&remote_addr, &sin_size);
-        if (newfd == -1) {
-            logmessage(PANIC, "Couldn't accept connection!");
+    fd_set all_fds;
+    fd_set read_fds;
+    int fdmax;
+
+    FD_ZERO(&all_fds);
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &all_fds);
+    fdmax = sockfd;
+
+    for (;;) {
+        read_fds = all_fds;
+        if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
+            logmessage(PANIC, "Error in select.");
         }
 
-        logmessage(INFO, "Connected, handling requests.");
+        for (int fd = 0; fd <= fdmax; fd++) {
+            if (!FD_ISSET(fd, &read_fds)) continue;
+            if (fd == sockfd) {
+                struct sockaddr_storage remote_addr;
+                socklen_t sin_size = sizeof remote_addr;
+                int newfd = accept(sockfd, (struct sockaddr *)&remote_addr, &sin_size);
+                if (newfd == -1) {
+                    logmessage(WARNING, "Couldn't accept connection!");
+                    continue;
+                }
 
-        if (background) {
-            fr = fork();
-            if (fr != 0) {
-                close(newfd);
-                continue;
+                logmessage(INFO, "Connected, handling requests.");
+
+                FD_SET(newfd, &all_fds);
+                if (newfd > fdmax) {
+                    fdmax = newfd;
+                }
+            } else {
+                handle_connection(fd);
+                FD_CLR(fd, &all_fds);
             }
-            handle_connection(newfd);
-            _exit(0);
         }
-        handle_connection(newfd);
     }
 }
 
