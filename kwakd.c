@@ -254,7 +254,7 @@ static const char http_date_months[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
 #define HEADER_DATE_LENGTH 25
 #define HEADER_EXPIRES_OFFSET (HEADER_DATE_OFFSET + HEADER_DATE_LENGTH + 4 + 2 + 9)
 
-#define ONE_YEAR (60 * 60 * 24 * 356)
+#define ONE_YEAR (60 * 60 * 24 * 365)
 
 static void format_int2(char *buf, int n) {
     buf[0] = '0' + (char)(n / 10);
